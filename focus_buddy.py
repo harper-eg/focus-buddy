@@ -93,20 +93,19 @@ class FocusBuddy:
         """Main application loop"""
         # Try different camera indices
         cap = None
-        for camera_index in [0, 1]:
-            cap = cv2.VideoCapture(camera_index)
-            if cap.isOpened():
-                ret, test_frame = cap.read()
-                if ret:
-                    print(f"Using camera index {camera_index}")
-                    break
-                else:
-                    cap.release()
-                    cap = None
+        
+        cap = cv2.VideoCapture(1)
+        if cap.isOpened():
+            ret, test_frame = cap.read()
+            if ret:
+                print(f"Success opening camera")
             else:
-                if cap:
-                    cap.release()
-                    cap = None
+                cap.release()
+                cap = None
+        else:
+            if cap:
+                cap.release()
+                cap = None
         
         if cap is None:
             print("Error: Could not open any camera")

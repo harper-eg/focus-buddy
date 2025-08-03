@@ -70,7 +70,65 @@ class FaceOrientationDetector:
         # Based on eye line angle
         roll = np.arctan2(right_eye_y - left_eye_y, right_eye_x - left_eye_x) * 180 / np.pi
         
+        # Store calculation details for visualization
+        self.yaw_calc_data = {
+            'nose_x': nose_x,
+            'nose_y': nose_y,
+            'eye_center_x': eye_center_x,
+            'eye_center_y': eye_center_y,
+            'nose_offset_x': nose_offset_x,
+            'eye_distance': eye_distance,
+            'yaw_radians': np.arctan2(nose_offset_x, eye_distance * 2),
+            'yaw_degrees': yaw
+        }
+        
         return pitch, yaw, roll
+    
+    def draw_yaw_visualization(self, image):
+        """Draw visualization of the arctan2 yaw calculation"""
+        if not hasattr(self, 'yaw_calc_data'):
+            return image
+        
+        data = self.yaw_calc_data
+        
+        # Draw eye center point
+        eye_center = (int(data['eye_center_x']), int(data['eye_center_y']))
+        cv2.circle(image, eye_center, 5, (0, 255, 255), -1)  # Yellow circle
+        cv2.putText(image, "Eye Center", (eye_center[0] + 10, eye_center[1]), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
+        
+        # Draw nose point
+        nose_pos = (int(data['nose_x']), int(data['nose_y']))
+        cv2.circle(image, nose_pos, 5, (255, 0, 0), -1)  # Blue circle
+        cv2.putText(image, "Nose", (nose_pos[0] + 10, nose_pos[1]), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+        
+        # Draw horizontal line from eye center (reference line)
+        ref_line_end = (int(data['eye_center_x'] + data['eye_distance']), int(data['eye_center_y']))
+        cv2.line(image, eye_center, ref_line_end, (128, 128, 128), 2)
+        cv2.putText(image, "Reference", (ref_line_end[0] + 5, ref_line_end[1]), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (128, 128, 128), 1)
+        
+        # Draw line from eye center to nose (for yaw calculation)
+        cv2.line(image, eye_center, nose_pos, (0, 255, 0), 2)  # Green line
+        
+        # Draw the offset vector components
+        offset_end_x = (int(data['eye_center_x'] + data['nose_offset_x']), int(data['eye_center_y']))
+        cv2.line(image, eye_center, offset_end_x, (255, 255, 0), 2)  # Cyan - horizontal offset
+        cv2.line(image, offset_end_x, nose_pos, (255, 0, 255), 2)  # Magenta - vertical component
+        
+        # Add text showing the calculation values
+        y_offset = 100
+        cv2.putText(image, f"Nose Offset X: {data['nose_offset_x']:.1f}px", 
+                   (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(image, f"Eye Distance * 2: {data['eye_distance'] * 2:.1f}px", 
+                   (10, y_offset + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(image, f"arctan2({data['nose_offset_x']:.1f}, {data['eye_distance'] * 2:.1f})", 
+                   (10, y_offset + 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        cv2.putText(image, f"= {data['yaw_radians']:.3f} rad = {data['yaw_degrees']:.1f}°", 
+                   (10, y_offset + 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        
+        return image
     
     def calculate_head_pose(self, landmarks, image_shape):
         """Calculate head pose angles from facial landmarks"""
@@ -125,6 +183,9 @@ class FaceOrientationDetector:
                     image, face_landmarks, self.mp_face_mesh.FACEMESH_CONTOURS,
                     None, self.mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1)
                 )
+                
+                # Draw yaw calculation visualization
+                image = self.draw_yaw_visualization(image)
         
         return face_turned_away, pose_info, image
 
@@ -138,7 +199,7 @@ def main():
     cap = cv2.VideoCapture(1)
     
     if cap is None:
-        print("Error: Could not open any camera")
+        print("Error: Could not open camera")
         return
     
     print("Face Orientation Detector Started")
