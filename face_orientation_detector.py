@@ -6,19 +6,16 @@ import math
 
 class FaceOrientationDetector:
     def __init__(self):
-        self.mp_face_mesh = mp.solutions.face_mesh
+        self.mp_face_mesh = mp.solutions.face_mesh # Initialize MediaPipe FaceMesh object
         self.face_mesh = self.mp_face_mesh.FaceMesh(
-            static_image_mode=False,
+            static_image_mode=False, # Treat input as a video stream
             max_num_faces=1,
-            refine_landmarks=True,
+            refine_landmarks=True, # Improves accuracy, optional due to increased compute overhead
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
-        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_drawing = mp.solutions.drawing_utils # Provides functions for visualizing landmarks
         
-        # Add smoothing for angle values
-        self.angle_history = []
-        self.history_size = 50
         
         # Key facial landmark indices for orientation calculation
         # Using stable landmarks that don't change with expressions
@@ -31,16 +28,18 @@ class FaceOrientationDetector:
             'right_temple': 397   # Right temple area
         }
     
-    def calculate_head_pose_simple(self, landmarks, image_shape):
+    def calculate_head_pose(self, landmarks, image_shape):
         """Simple head pose calculation using geometric relationships"""
-        height, width = image_shape[:2]
+        height, width = image_shape[:2] # First 2 tuple values of image_shape are h and w
         
         # Get key points
+        # "landmarks" is passed to the function, contains all face landmarks
         nose_tip = landmarks[self.FACE_LANDMARKS['nose_tip']]
         left_eye = landmarks[self.FACE_LANDMARKS['left_eye_corner']]
         right_eye = landmarks[self.FACE_LANDMARKS['right_eye_corner']]
         
         # Convert to pixel coordinates
+        # Denormalizes values, which are initially in range 0 to 1
         nose_x = nose_tip.x * width
         nose_y = nose_tip.y * height
         left_eye_x = left_eye.x * width
@@ -130,27 +129,6 @@ class FaceOrientationDetector:
         
         return image
     
-    def calculate_head_pose(self, landmarks, image_shape):
-        """Calculate head pose angles from facial landmarks"""
-        # Use simple geometric method instead of PnP for better stability
-        return self.calculate_head_pose_simple(landmarks, image_shape)
-        
-        # The simple method returns pitch, yaw, roll directly
-        pitch, yaw, roll = self.calculate_head_pose_simple(landmarks, image_shape)
-        
-        # Smooth the angles
-        current_angles = [pitch, yaw, roll]
-        self.angle_history.append(current_angles)
-        
-        if len(self.angle_history) > self.history_size:
-            self.angle_history.pop(0)
-        
-        # Return smoothed values
-        if len(self.angle_history) > 1:
-            smoothed = np.mean(self.angle_history, axis=0)
-            return smoothed[0], smoothed[1], smoothed[2]
-        
-        return pitch, yaw, roll
 
     def is_face_turned_away(self, x, y):
         """Determine if the face is turned away based on pose angles"""
@@ -196,7 +174,7 @@ def main():
     
     cap = None
     
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     
     if cap is None:
         print("Error: Could not open camera")
